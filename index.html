@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stock">
+<meta name="theme-color" content="#0F6E56">
+<title>Entrée de stock</title>
+<style>
+  :root {
+    --green: #0F6E56;
+    --green-light: #E1F5EE;
+    --green-dark: #085041;
+    --green-mid: #1D9E75;
+    --red: #A32D2D;
+    --text: #1a1a1a;
+    --text-muted: #6b7280;
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; font-family: -apple-system, 'SF Pro Display', BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  body { display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  .header {
+    background: var(--green); color: white;
+    padding: 16px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .sub { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+  .header-row { display: flex; align-items: center; gap: 10px; }
+  .back-btn {
+    background: rgba(255,255,255,0.2); border: none; color: white;
+    width: 36px; height: 36px; border-radius: 50%; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .back-btn:active { background: rgba(255,255,255,0.35); }
+
+  .page { display: none; flex: 1; flex-direction: column; }
+  .page.active { display: flex; }
+  .scroll-area { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 120px; }
+
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 12px; overflow: hidden; }
+  .card-body { padding: 14px 16px; }
+  .card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+
+  .datetime-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  input[type="date"], input[type="time"], select.field-select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 15px; background: var(--surface); color: var(--text);
+    font-family: inherit; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus { outline: 2px solid var(--green); outline-offset: -1px; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 16px 0 8px; }
+  .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .product-btn {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 14px 12px;
+    cursor: pointer; text-align: left; position: relative;
+    transition: transform 0.1s; width: 100%;
+  }
+  .product-btn:active { transform: scale(0.97); }
+  .product-btn.done { border-color: var(--green-mid); background: var(--green-light); }
+  .product-btn .pname { font-size: 15px; font-weight: 600; color: var(--text); }
+  .product-btn.done .pname { color: var(--green-dark); }
+  .product-btn .ptotal { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .product-btn.done .ptotal { color: var(--green); font-weight: 600; }
+  .product-btn .check { position: absolute; top: 10px; right: 10px; font-size: 16px; display: none; }
+  .product-btn.done .check { display: block; }
+
+  .piece-row {
+    display: flex; align-items: center; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  .piece-row:last-child { border-bottom: none; }
+  .piece-row.has-value { background: #f0fdf8; }
+  .piece-name { flex: 1; font-size: 16px; font-weight: 500; }
+  .piece-row.has-value .piece-name { color: var(--green-dark); }
+  .piece-select {
+    width: 80px; padding: 8px 6px; font-size: 16px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text); font-family: inherit;
+    -webkit-appearance: auto; appearance: auto;
+  }
+  .piece-row.has-value .piece-select { border-color: var(--green-mid); color: var(--green-dark); }
+
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    z-index: 100;
+  }
+  .btn-main {
+    width: 100%; padding: 15px; background: var(--green); color: white;
+    border: none; border-radius: var(--radius); font-size: 16px; font-weight: 600;
+    cursor: pointer; font-family: inherit; margin-bottom: 0;
+  }
+  .btn-main:active { background: var(--green-dark); }
+  .btn-main:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-main.secondary {
+    background: transparent; color: var(--green);
+    border: 1.5px solid var(--green); margin-top: 8px;
+  }
+  .btn-main.danger { background: var(--red); margin-top: 8px; }
+  .btn-main.danger:active { background: #7a1f1f; }
+
+  .recap-group { margin-bottom: 12px; }
+  .recap-product-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--green-light);
+    border-bottom: 1px solid rgba(15,110,86,0.15);
+  }
+  .recap-product-header .pname { font-size: 15px; font-weight: 700; color: var(--green-dark); }
+  .recap-product-header .ptotal { font-size: 13px; font-weight: 600; color: var(--green); background: white; padding: 2px 10px; border-radius: 20px; }
+  .recap-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .recap-item:last-child { border-bottom: none; }
+  .recap-item .iname { font-size: 14px; color: var(--text-muted); }
+  .recap-item .iqty { font-size: 15px; font-weight: 600; color: var(--text); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  #toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: #1a1a1a; color: white; padding: 10px 20px;
+    border-radius: 20px; font-size: 14px; z-index: 999;
+    display: none; white-space: nowrap; font-family: inherit;
+    max-width: 90vw; text-align: center;
+  }
+
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .page.active { animation: slideIn 0.18s ease; }
+</style>
+</head>
+<body>
+
+<!-- PAGE ACCUEIL -->
+<div class="page active" id="page-home">
+  <div class="header">
+    <h1>📦 Entrée de stock</h1>
+    <div class="sub" id="home-sub">Sélectionner un produit</div>
+  </div>
+  <div class="scroll-area">
+
+    <div class="section-title">Date &amp; heure</div>
+    <div class="card card-body">
+      <div class="datetime-row">
+        <div>
+          <div class="card-label">Date</div>
+          <input type="date" id="home-date">
+        </div>
+        <div>
+          <div class="card-label">Heure</div>
+          <input type="time" id="home-time">
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Opérateur</div>
+    <div class="card card-body">
+      <div class="card-label">Nom</div>
+      <select id="operator" class="field-select">
+        <option value="">— Sélectionner —</option>
+        <option>Martin</option>
+        <option>Axel</option>
+        <option>Damien</option>
+        <option>Sylvère</option>
+        <option>Adrien</option>
+        <option>Philippe</option>
+        <option>Kilian</option>
+      </select>
+    </div>
+
+    <div class="section-title">Produit</div>
+    <div class="product-grid" id="product-grid"></div>
+
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main" onclick="goRecap()">Récapitulatif &amp; validation →</button>
+  </div>
+</div>
+
+<!-- PAGE SAISIE -->
+<div class="page" id="page-entry">
+  <div class="header">
+    <div class="header-row">
+      <button class="back-btn" onclick="goHome()">←</button>
+      <div>
+        <h1 id="entry-title">Saisie</h1>
+        <div class="sub" id="entry-sub"></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-area">
+    <div class="card" id="pieces-container"></div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main" onclick="saveEntry()">✓ Valider et retour</button>
+    <button class="btn-main secondary" onclick="resetEntry()">Réinitialiser les quantités</button>
+  </div>
+</div>
+
+<!-- PAGE RECAP -->
+<div class="page" id="page-recap">
+  <div class="header">
+    <div class="header-row">
+      <button class="back-btn" onclick="goHome()">←</button>
+      <div>
+        <h1>Récapitulatif</h1>
+        <div class="sub" id="recap-sub"></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-area">
+    <div id="recap-body"></div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main" id="submit-btn" onclick="submitAll()">✓ Confirmer &amp; soumettre</button>
+    <button class="btn-main danger" onclick="resetAll()">🗑 Tout effacer</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCz0GaQdMnxIZgshRvasYboj4F6BMIMOSpwK6ybVA_tl6dYoHgLN9Q_bIU8S2ouYZW_w/exec';
+
+const PRODUCTS = {
+  "Rack S":      ["RS1","RS2","RS3","RS4","RS5"],
+  "Rack M":      ["RM1","RM2","RM3","RM4","RM5"],
+  "Rack L":      ["RL1","RL2","RL3","RL4","RL5"],
+  "Bed M":       ["BM1","BM2","BM3","BM4","BM5","BM6","BM7","BM8"],
+  "Bed L":       ["BL1","BL2","BL3","BL4","BL5","BL6","BL7","BL8"],
+  "Universelle": ["RU1","RU2","RU4","RU5","RU6","BU1","BU2","BU4","BU5","FU1","FU2","FU3","FU4"]
+};
+
+let session = {};
+let currentProduct = null;
+let currentValues = {};
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function init(){
+  const d = new Date();
+  document.getElementById('home-date').value =
+    d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  document.getElementById('home-time').value =
+    pad(d.getHours())+':'+pad(d.getMinutes());
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid = document.getElementById('product-grid');
+  grid.innerHTML = '';
+  let totalPieces = 0;
+  Object.entries(PRODUCTS).forEach(([prod, pieces]) => {
+    const data = session[prod] || {};
+    const total = pieces.reduce((s,p) => s+(data[p]||0), 0);
+    totalPieces += total;
+    const done = total > 0;
+    const btn = document.createElement('button');
+    btn.className = 'product-btn' + (done ? ' done' : '');
+    btn.innerHTML =
+      '<span class="check">✓</span>' +
+      '<div class="pname">'+prod+'</div>' +
+      '<div class="ptotal">'+(done ? total+' pièce'+(total>1?'s':'')+' saisie'+(total>1?'s':'') : 'Non saisi')+'</div>';
+    btn.onclick = function(){ openEntry(prod); };
+    grid.appendChild(btn);
+  });
+  const sub = document.getElementById('home-sub');
+  sub.textContent = totalPieces > 0
+    ? totalPieces+' pièce'+(totalPieces>1?'s':'')+' saisie'+(totalPieces>1?'s':'')
+    : 'Sélectionner un produit';
+}
+
+function openEntry(prod){
+  currentProduct = prod;
+  currentValues = Object.assign({}, session[prod] || {});
+  document.getElementById('entry-title').textContent = prod;
+  const date = document.getElementById('home-date').value;
+  const time = document.getElementById('home-time').value;
+  document.getElementById('entry-sub').textContent = formatDate(date) + ' · ' + time;
+  renderPieces();
+  show('entry');
+}
+
+function renderPieces(){
+  const c = document.getElementById('pieces-container');
+  c.innerHTML = '';
+  PRODUCTS[currentProduct].forEach(function(p){
+    const val = currentValues[p] || 0;
+    const row = document.createElement('div');
+    row.className = 'piece-row' + (val > 0 ? ' has-value' : '');
+    row.id = 'row-'+p;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'piece-name';
+    nameEl.textContent = p;
+
+    const sel = document.createElement('select');
+    sel.className = 'piece-select';
+    for(var i = 0; i <= 50; i++){
+      const o = document.createElement('option');
+      o.value = i; o.textContent = i;
+      if(i === val) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.onchange = (function(piece, r){
+      return function(){
+        const v = parseInt(this.value);
+        currentValues[piece] = v;
+        r.className = 'piece-row' + (v > 0 ? ' has-value' : '');
+      };
+    })(p, row);
+
+    row.appendChild(nameEl);
+    row.appendChild(sel);
+    c.appendChild(row);
+  });
+}
+
+function saveEntry(){
+  session[currentProduct] = Object.assign({}, currentValues);
+  renderGrid();
+  goHome();
+  const total = PRODUCTS[currentProduct].reduce(function(s,p){ return s+(currentValues[p]||0); }, 0);
+  toast('✓ '+currentProduct+' — '+total+' pièce'+(total>1?'s':'')+' enregistrée'+(total>1?'s':''));
+}
+
+function resetEntry(){
+  PRODUCTS[currentProduct].forEach(function(p){ currentValues[p] = 0; });
+  renderPieces();
+}
+
+function goHome(){ show('home'); renderGrid(); }
+
+function goRecap(){
+  const date = document.getElementById('home-date').value;
+  const time = document.getElementById('home-time').value;
+  const operator = document.getElementById('operator').value;
+  document.getElementById('recap-sub').textContent =
+    formatDate(date) + ' · ' + time + (operator ? ' · ' + operator : '');
+
+  const body = document.getElementById('recap-body');
+  body.innerHTML = '';
+  let hasData = false;
+
+  Object.entries(PRODUCTS).forEach(function([prod, pieces]){
+    const data = session[prod] || {};
+    const nonZero = pieces.filter(function(p){ return (data[p]||0) > 0; });
+    if(!nonZero.length) return;
+    hasData = true;
+    const total = nonZero.reduce(function(s,p){ return s+(data[p]||0); }, 0);
+
+    const group = document.createElement('div');
+    group.className = 'recap-group card';
+
+    const header = document.createElement('div');
+    header.className = 'recap-product-header';
+    header.innerHTML = '<span class="pname">'+prod+'</span><span class="ptotal">'+total+' pcs</span>';
+    group.appendChild(header);
+
+    nonZero.forEach(function(p){
+      const item = document.createElement('div');
+      item.className = 'recap-item';
+      item.innerHTML = '<span class="iname">'+p+'</span><span class="iqty">'+data[p]+'</span>';
+      group.appendChild(item);
+    });
+
+    body.appendChild(group);
+  });
+
+  if(!hasData){
+    body.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Aucune pièce saisie pour le moment.</p></div>';
+  }
+  show('recap');
+}
+
+function buildPayload(){
+  return {
+    date: document.getElementById('home-date').value,
+    time: document.getElementById('home-time').value,
+    operator: document.getElementById('operator').value,
+    session: session
+  };
+}
+
+function submitAll(){
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Envoi en cours...';
+  btn.disabled = true;
+
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(buildPayload())
+  })
+  .then(function(){
+    toast('✓ Stock soumis avec succès !');
+    setTimeout(function(){
+      session = {};
+      renderGrid();
+      show('home');
+      btn.textContent = '✓ Confirmer & soumettre';
+      btn.disabled = false;
+    }, 1500);
+  })
+  .catch(function(){
+    toast('⚠ Erreur de connexion, réessaie');
+    btn.textContent = '✓ Confirmer & soumettre';
+    btn.disabled = false;
+  });
+}
+
+function resetAll(){
+  if(confirm('Effacer toutes les saisies ?')){
+    session = {};
+    renderGrid();
+    show('home');
+  }
+}
+
+function show(page){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page-'+page).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function formatDate(d){
+  if(!d) return '';
+  var parts = d.split('-');
+  return parts[2]+'/'+parts[1]+'/'+parts[0];
+}
+
+var toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.style.display = 'none'; }, 2500);
+}
+
+init();
+</script>
+</body>
+</html>
