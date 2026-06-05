@@ -399,14 +399,30 @@ function goRecap(){
 }
 
 function submitAll(){
-  // Ici tu pourras brancher ton Google Apps Script
-  // fetch('TON_URL_APPS_SCRIPT', { method:'POST', body: JSON.stringify(buildPayload()) })
-  toast('✓ Stock soumis avec succès !');
-  setTimeout(() => {
-    session = {};
-    renderGrid();
-    show('home');
-  }, 1500);
+  const URL = https://script.google.com/macros/s/AKfycbwCz0GaQdMnxIZgshRvasYboj4F6BMIMOSpwK6ybVA_tl6dYoHgLN9Q_bIU8S2ouYZW_w/exec;
+  const btn = document.querySelector('#page-recap .btn-main');
+  btn.textContent = 'Envoi en cours...';
+  btn.disabled = true;
+
+  fetch(URL, {
+    method: 'POST',
+    body: JSON.stringify(buildPayload())
+  })
+  .then(() => {
+    toast('✓ Stock soumis avec succès !');
+    setTimeout(() => {
+      session = {};
+      renderGrid();
+      show('home');
+      btn.textContent = '✓ Confirmer & soumettre';
+      btn.disabled = false;
+    }, 1500);
+  })
+  .catch(() => {
+    toast('⚠ Erreur de connexion, réessaie');
+    btn.textContent = '✓ Confirmer & soumettre';
+    btn.disabled = false;
+  });
 }
 
 function resetAll(){
