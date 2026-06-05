@@ -308,42 +308,25 @@ function renderPieces(){
     nameEl.className = 'piece-name';
     nameEl.textContent = p;
 
-    const ctrl = document.createElement('div');
-    ctrl.className = 'qty-control';
-
-    const minus = document.createElement('button');
-    minus.className = 'qty-btn';
-    minus.textContent = '−';
-    minus.onclick = () => changeQty(p, -1);
-
-    const disp = document.createElement('div');
-    disp.className = 'qty-display';
-    disp.id = 'qty-'+p;
-    disp.textContent = val;
-
-    const plus = document.createElement('button');
-    plus.className = 'qty-btn';
-    plus.textContent = '+';
-    plus.onclick = () => changeQty(p, 1);
-
-    ctrl.appendChild(minus);
-    ctrl.appendChild(disp);
-    ctrl.appendChild(plus);
+    const sel = document.createElement('select');
+    sel.style.cssText = 'width:80px;padding:8px 6px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;';
+    for(let i = 0; i <= 50; i++){
+      const o = document.createElement('option');
+      o.value = i; o.textContent = i;
+      if(i === val) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.onchange = function(){
+      const v = parseInt(this.value);
+      currentValues[p] = v;
+      row.className = 'piece-row' + (v > 0 ? ' has-value' : '');
+    };
 
     row.appendChild(nameEl);
-    row.appendChild(ctrl);
+    row.appendChild(sel);
     c.appendChild(row);
   });
-}
-
-function changeQty(piece, delta){
-  const cur = currentValues[piece] || 0;
-  const next = Math.max(0, Math.min(50, cur + delta));
-  currentValues[piece] = next;
-  document.getElementById('qty-'+piece).textContent = next;
-  const row = document.getElementById('row-'+piece);
-  row.className = 'piece-row' + (next > 0 ? ' has-value' : '');
-}
+}  
 
 function saveEntry(){
   session[currentProduct] = Object.assign({}, currentValues);
