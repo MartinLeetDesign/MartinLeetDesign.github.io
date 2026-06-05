@@ -182,6 +182,20 @@
         </div>
       </div>
     </div>
+    <div class="section-title">Opérateur</div>
+    <div class="card card-body">
+      <div class="card-label">Nom</div>
+      <select id="operator" style="width:100%;padding:10px 12px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;">
+        <option value="">— Sélectionner —</option>
+        <option>Martin</option>
+        <option>Axel</option>
+        <option>Damien</option>
+        <option>Sylvère</option>
+        <option>Adrien</option>
+        <option>Philippe</option>
+        <option>Kilian</option>
+      </select>
+    </div>
     <div class="section-title">Produit</div>
     <div class="product-grid" id="product-grid"></div>
   </div>
@@ -346,7 +360,8 @@ function goHome(){ show('home'); renderGrid(); }
 function goRecap(){
   const date = document.getElementById('home-date').value;
   const time = document.getElementById('home-time').value;
-  document.getElementById('recap-sub').textContent = formatDate(date) + ' · ' + time;
+  const operator = document.getElementById('operator').value;
+  document.getElementById('recap-sub').textContent = formatDate(date) + ' · ' + time + (operator ? ' · ' + operator : '');
 
   const body = document.getElementById('recap-body');
   body.innerHTML = '';
@@ -405,7 +420,8 @@ function resetAll(){
 function buildPayload(){
   const date = document.getElementById('home-date').value;
   const time = document.getElementById('home-time').value;
-  return { date, time, session };
+  const operator = document.getElementById('operator').value;
+  return { date, time, operator, session };
 }
 
 function show(page){
