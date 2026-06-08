@@ -311,7 +311,7 @@ function renderPieces(){
 
     const sel = document.createElement('select');
     sel.className = 'piece-select';
-    for(var i = 0; i <= 50; i++){
+    for(var i = 0; i <= 200; i++){
       const o = document.createElement('option');
       o.value = i; o.textContent = i;
       if(i === val) o.selected = true;
