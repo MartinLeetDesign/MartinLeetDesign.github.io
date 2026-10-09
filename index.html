@@ -15,6 +15,8 @@
     --green-dark: #085041;
     --green-mid: #1D9E75;
     --red: #A32D2D;
+    --orange: #B4540A;
+    --orange-light: #FDF1E6;
     --text: #1a1a1a;
     --text-muted: #6b7280;
     --bg: #f5f5f0;
@@ -93,6 +95,38 @@
   }
   .piece-row.has-value .piece-select { border-color: var(--green-mid); color: var(--green-dark); }
 
+  /* Pièces soumises à vérification d'usinage */
+  .piece-tag {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    color: var(--orange); background: var(--orange-light);
+    padding: 2px 8px; border-radius: 20px; margin-left: 8px; vertical-align: middle;
+  }
+  .piece-tag.ok { color: var(--green); background: var(--green-light); }
+  .verify-btn {
+    width: 80px; padding: 8px 6px; font-size: 14px; font-weight: 600;
+    border: 1.5px solid var(--orange); border-radius: var(--radius-sm);
+    background: var(--orange-light); color: var(--orange);
+    font-family: inherit; cursor: pointer;
+  }
+  .verify-btn:active { background: #f8dfc6; }
+
+  /* Pop-up */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 1000; padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 16px;
+    width: 100%; max-width: 400px; padding: 24px 20px 20px;
+    text-align: center; animation: slideIn 0.18s ease;
+  }
+  .modal .icon { font-size: 40px; margin-bottom: 10px; }
+  .modal .modal-piece { font-size: 13px; font-weight: 600; color: var(--orange); margin-bottom: 6px; }
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; line-height: 1.35; }
+  .modal .btn-main + .btn-main { margin-top: 8px; }
+
   .bottom-bar {
     position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 480px;
@@ -135,7 +169,7 @@
   #toast {
     position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
     background: #1a1a1a; color: white; padding: 10px 20px;
-    border-radius: 20px; font-size: 14px; z-index: 999;
+    border-radius: 20px; font-size: 14px; z-index: 1100;
     display: none; white-space: nowrap; font-family: inherit;
     max-width: 90vw; text-align: center;
   }
@@ -234,6 +268,17 @@
   </div>
 </div>
 
+<!-- POP-UP VÉRIFICATION USINAGE -->
+<div class="modal-overlay" id="usinage-modal" role="dialog" aria-modal="true" aria-labelledby="usinage-title">
+  <div class="modal">
+    <div class="icon">⚠️</div>
+    <div class="modal-piece" id="usinage-piece"></div>
+    <h2 id="usinage-title">Vérifier l'usinage des perçages sur les chants des panneaux</h2>
+    <button class="btn-main" onclick="usinageVerifie()">✓ Usinage vérifié</button>
+    <button class="btn-main danger" onclick="usinageNonRealise()">✕ Usinage pas réalisé</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -248,9 +293,19 @@ const PRODUCTS = {
   "Universelle": ["RU1","RU2","RU4","RU5","RU6","BU1","BU2","BU4","BU5","FU1","FU2","FU3","FU4"]
 };
 
+// Pièces nécessitant une vérification de l'usinage avant saisie
+const PIECES_A_VERIFIER = ["RS2","RM2","RM3","RL2","RL3"];
+
 let session = {};
 let currentProduct = null;
 let currentValues = {};
+
+// Vérifications d'usinage : validées pour la session / en cours sur la page de saisie
+let verifiedSession = {};
+let currentVerified = {};
+let pendingPiece = null;
+
+function needsCheck(p){ return PIECES_A_VERIFIER.indexOf(p) !== -1; }
 
 function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -290,6 +345,7 @@ function renderGrid(){
 function openEntry(prod){
   currentProduct = prod;
   currentValues = Object.assign({}, session[prod] || {});
+  currentVerified = Object.assign({}, verifiedSession);
   document.getElementById('entry-title').textContent = prod;
   const date = document.getElementById('home-date').value;
   const time = document.getElementById('home-time').value;
@@ -311,8 +367,34 @@ function renderPieces(){
     nameEl.className = 'piece-name';
     nameEl.textContent = p;
 
+    // Pièce à vérifier et pas encore vérifiée : bouton qui ouvre la pop-up
+    if(needsCheck(p) && !currentVerified[p]){
+      const tag = document.createElement('span');
+      tag.className = 'piece-tag';
+      tag.textContent = 'Usinage à vérifier';
+      nameEl.appendChild(tag);
+
+      const vbtn = document.createElement('button');
+      vbtn.className = 'verify-btn';
+      vbtn.textContent = 'Saisir';
+      vbtn.onclick = function(){ openUsinageModal(p); };
+
+      row.appendChild(nameEl);
+      row.appendChild(vbtn);
+      c.appendChild(row);
+      return;
+    }
+
+    if(needsCheck(p)){
+      const tag = document.createElement('span');
+      tag.className = 'piece-tag ok';
+      tag.textContent = 'Usinage vérifié';
+      nameEl.appendChild(tag);
+    }
+
     const sel = document.createElement('select');
     sel.className = 'piece-select';
+    sel.id = 'sel-'+p;
     for(var i = 0; i <= 200; i++){
       const o = document.createElement('option');
       o.value = i; o.textContent = i;
@@ -333,8 +415,40 @@ function renderPieces(){
   });
 }
 
+// ----- Pop-up vérification usinage -----
+function openUsinageModal(piece){
+  pendingPiece = piece;
+  document.getElementById('usinage-piece').textContent = 'Pièce ' + piece;
+  document.getElementById('usinage-modal').classList.add('open');
+}
+
+function closeUsinageModal(){
+  document.getElementById('usinage-modal').classList.remove('open');
+  pendingPiece = null;
+}
+
+function usinageVerifie(){
+  const piece = pendingPiece;
+  currentVerified[piece] = true;
+  closeUsinageModal();
+  renderPieces();
+  // Place directement l'opérateur sur la sélection de quantité
+  const sel = document.getElementById('sel-'+piece);
+  if(sel){ sel.focus(); }
+}
+
+function usinageNonRealise(){
+  const piece = pendingPiece;
+  currentValues[piece] = 0;
+  delete currentVerified[piece];
+  closeUsinageModal();
+  renderPieces();
+  toast('✕ Saisie de ' + piece + ' annulée');
+}
+
 function saveEntry(){
   session[currentProduct] = Object.assign({}, currentValues);
+  verifiedSession = Object.assign({}, currentVerified);
   renderGrid();
   goHome();
   const total = PRODUCTS[currentProduct].reduce(function(s,p){ return s+(currentValues[p]||0); }, 0);
@@ -342,7 +456,10 @@ function saveEntry(){
 }
 
 function resetEntry(){
-  PRODUCTS[currentProduct].forEach(function(p){ currentValues[p] = 0; });
+  PRODUCTS[currentProduct].forEach(function(p){
+    currentValues[p] = 0;
+    delete currentVerified[p];
+  });
   renderPieces();
 }
 
@@ -377,7 +494,7 @@ function goRecap(){
     nonZero.forEach(function(p){
       const item = document.createElement('div');
       item.className = 'recap-item';
-      item.innerHTML = '<span class="iname">'+p+'</span><span class="iqty">'+data[p]+'</span>';
+      item.innerHTML = '<span class="iname">'+p+(needsCheck(p) ? ' <span class="piece-tag ok">Usinage vérifié</span>' : '')+'</span><span class="iqty">'+data[p]+'</span>';
       group.appendChild(item);
     });
 
@@ -413,6 +530,7 @@ function submitAll(){
     toast('✓ Stock soumis avec succès !');
     setTimeout(function(){
       session = {};
+      verifiedSession = {};
       renderGrid();
       show('home');
       btn.textContent = '✓ Confirmer & soumettre';
@@ -429,6 +547,7 @@ function submitAll(){
 function resetAll(){
   if(confirm('Effacer toutes les saisies ?')){
     session = {};
+    verifiedSession = {};
     renderGrid();
     show('home');
   }
